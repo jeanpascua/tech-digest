@@ -1,0 +1,13 @@
+[Unit]
+Description=Daily tech news digest to Discord
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=jean
+WorkingDirectory=/home/jean/projects/tech-digest
+EnvironmentFile=/home/jean/projects/tech-digest/.env
+ExecStart=/home/jean/projects/tech-digest/venv/bin/python digest.py
+StandardOutput=journal
+StandardError=journal
