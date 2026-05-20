@@ -3,6 +3,7 @@
 
 import os
 import json
+import xml.etree.ElementTree as ET
 import requests
 from datetime import datetime, timezone
 from dotenv import load_dotenv
@@ -12,7 +13,7 @@ load_dotenv()
 WEBHOOK_URL = os.environ["DISCORD_WEBHOOK_URL"]
 HN_TOP_URL = "https://hacker-news.firebaseio.com/v0/topstories.json"
 HN_ITEM_URL = "https://hacker-news.firebaseio.com/v0/item/{}.json"
-REDDIT_URL = "https://www.reddit.com/r/{}/top.json?limit=10&t=day"
+REDDIT_RSS_URL = "https://www.reddit.com/r/{}/top.rss?t=day"
 TOP_N = 5
 
 HEADERS = {"User-Agent": "tech-digest-bot/1.0"}
@@ -36,28 +37,26 @@ def fetch_hn(n=TOP_N):
 
 
 def fetch_reddit(sub, n=TOP_N):
-    resp = requests.get(REDDIT_URL.format(sub), headers=HEADERS, timeout=10)
-    posts = resp.json()["data"]["children"]
+    resp = requests.get(REDDIT_RSS_URL.format(sub), headers=HEADERS, timeout=10)
+    resp.raise_for_status()
+    root = ET.fromstring(resp.content)
+    ns = {"atom": "http://www.w3.org/2005/Atom"}
+    entries = root.findall("atom:entry", ns)
     results = []
-    for p in posts[:n]:
-        d = p["data"]
-        if d.get("is_self"):
-            url = f"https://reddit.com{d['permalink']}"
-        else:
-            url = d.get("url", f"https://reddit.com{d['permalink']}")
-        results.append({
-            "title": d["title"],
-            "url": url,
-            "score": d["score"],
-            "comments": f"https://reddit.com{d['permalink']}",
-        })
+    for entry in entries[:n]:
+        title = entry.findtext("atom:title", "", ns).strip()
+        link_el = entry.find("atom:link", ns)
+        link = link_el.get("href", "") if link_el is not None else ""
+        if title and link:
+            results.append({"title": title, "url": link, "score": None, "comments": link})
     return results
 
 
 def format_stories(stories, show_comments=True):
     lines = []
     for i, s in enumerate(stories, 1):
-        line = f"{i}. [{s['title']}]({s['url']}) ↑{s['score']}"
+        score = f" ↑{s['score']}" if s.get("score") is not None else ""
+        line = f"{i}. [{s['title']}]({s['url']}){score}"
         if show_comments and s.get("comments") and s["comments"] != s["url"]:
             line += f" · [comments]({s['comments']})"
         lines.append(line)
