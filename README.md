@@ -1,10 +1,16 @@
 # tech-digest
 
-Daily Discord digest of top stories from Hacker News, r/programming, and r/devops. Posts every morning at 8am via systemd timer.
+Pulls top stories from Hacker News, r/programming, and r/devops every morning and posts them as a single Discord embed. Runs on my homelab server via systemd timer at 8am daily. I built it because I wanted passive tech news without opening Reddit or HN myself.
 
-## What it does
+## What gets posted
 
-Fetches the top 5 stories from each source and sends a single Discord embed with all three sections.
+One Discord embed with three sections:
+
+- **Hacker News** — top 5 stories of the day (Firebase API), with score and comments link
+- **r/programming** — top 5 posts of the day (Reddit RSS)
+- **r/devops** — top 5 posts of the day (Reddit RSS)
+
+Reddit RSS instead of JSON API because the JSON endpoint started returning 403s.
 
 ## Setup
 
@@ -16,10 +22,10 @@ python3 -m venv venv
 venv/bin/pip install -r requirements.txt
 
 cp .env.example .env
-# paste your Discord webhook URL into .env
+# add your Discord webhook URL to .env
 ```
 
-Test it:
+Test it manually:
 
 ```bash
 venv/bin/python digest.py
@@ -33,12 +39,14 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now tech-digest.timer
 ```
 
-Check logs:
+Check it's scheduled:
 
 ```bash
-journalctl -u tech-digest.service
 systemctl list-timers tech-digest.timer
+journalctl -u tech-digest.service
 ```
+
+Timer fires at `08:00:00` local time daily.
 
 ## Config
 
@@ -46,4 +54,10 @@ systemctl list-timers tech-digest.timer
 |----------|-------------|
 | `DISCORD_WEBHOOK_URL` | Discord incoming webhook URL |
 
-Timer fires at 8:00am local time daily (`OnCalendar=*-*-* 08:00:00`).
+`.env` file, not committed. See `.env.example` for the format.
+
+## Stack
+
+- Python + `requests` + `python-dotenv`
+- Discord webhook (no bot token)
+- Systemd timer (no cron, no Docker)
