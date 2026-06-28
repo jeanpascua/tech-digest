@@ -1,16 +1,12 @@
 # tech-digest
 
-Pulls top stories from Hacker News, r/programming, and r/devops every morning and posts them as a single Discord embed. Runs on my homelab server via systemd timer at 8am daily. I built it because I wanted passive tech news without opening Reddit or HN myself.
+Pulls the top 10 Hacker News stories every morning and posts them as a Discord embed. Runs on my homelab server via systemd timer at 8am daily. I built it because I wanted passive tech news without opening HN myself.
 
 ## What gets posted
 
-One Discord embed with three sections:
+One Discord embed:
 
-- **Hacker News** — top 5 stories of the day (Firebase API), with score and comments link
-- **r/programming** — top 5 posts of the day (Reddit RSS)
-- **r/devops** — top 5 posts of the day (Reddit RSS)
-
-Reddit RSS instead of JSON API because the JSON endpoint started returning 403s.
+- **Hacker News** — top 10 stories of the day (Firebase API), with score and comments link
 
 ## Setup
 
