@@ -18,7 +18,7 @@ WEBHOOK_URL = os.environ["DISCORD_WEBHOOK_URL"]
 HN_TOP_URL = "https://hacker-news.firebaseio.com/v0/topstories.json"
 HN_ITEM_URL = "https://hacker-news.firebaseio.com/v0/item/{}.json"
 REDDIT_RSS_URL = "https://www.reddit.com/r/{}/top.rss?t=day"
-TOP_N = 5
+TOP_N = 10
 
 HEADERS = {"User-Agent": "linux:tech-digest-bot:v1.0 (by /u/jean-homelab)"}
 
@@ -48,20 +48,26 @@ def fetch_hn(n=TOP_N):
 
 
 def fetch_reddit(sub, n=TOP_N):
+    xml_body = None
     for attempt in range(3):
         result = subprocess.run(
-            ["curl", "-s", "-H", f"User-Agent: {HEADERS['User-Agent']}", REDDIT_RSS_URL.format(sub)],
-            capture_output=True, text=True, timeout=15,
+            ["curl", "-s", "-L", "-w", "\n__HTTP_STATUS__%{http_code}",
+             "-H", f"User-Agent: {HEADERS['User-Agent']}",
+             REDDIT_RSS_URL.format(sub)],
+            capture_output=True, text=True, timeout=30,
         )
-        if result.returncode == 0 and result.stdout.strip() and "<entry>" in result.stdout:
+        body, _, http_status = result.stdout.rpartition("\n__HTTP_STATUS__")
+        http_status = http_status.strip()
+        if result.returncode == 0 and http_status == "200" and "<entry>" in body:
+            xml_body = body
             break
-        wait = 10 * (attempt + 1)
-        print(f"  WARN: r/{sub} attempt {attempt+1} failed, retrying in {wait}s...")
+        wait = 30 * (2 ** attempt)  # 30s, 60s, 120s
+        print(f"  WARN: r/{sub} attempt {attempt+1} failed (HTTP {http_status}), retrying in {wait}s...")
         time.sleep(wait)
     else:
         print(f"  WARN: r/{sub} all retries failed, skipping")
         return []
-    root = ET.fromstring(result.stdout)
+    root = ET.fromstring(xml_body)
     ns = {"atom": "http://www.w3.org/2005/Atom"}
     entries = root.findall("atom:entry", ns)
     results = []
@@ -145,22 +151,14 @@ def format_stories(stories, show_comments=True):
     return result
 
 
-def build_payload(hn, programming, devops):
+def build_payload(hn):
     date_str = datetime.now(timezone.utc).strftime("%A, %b %d %Y")
     embeds = [
         {
             "title": f"Tech Digest — {date_str}",
             "color": 0xFF6600,
             "description": f"**🔶 Hacker News**\n{format_stories(hn)}",
-        },
-        {
-            "color": 0x0055A4,
-            "description": f"**💻 r/programming**\n{format_stories(programming)}",
-        },
-        {
-            "color": 0x00A36C,
-            "description": f"**⚙️ r/devops**\n{format_stories(devops)}",
-            "footer": {"text": "HN + Reddit · daily at 8am"},
+            "footer": {"text": "Hacker News · daily at 8am"},
         },
     ]
     return {"embeds": embeds}
@@ -169,13 +167,8 @@ def build_payload(hn, programming, devops):
 def main():
     print("Fetching HN...")
     hn = fetch_hn()
-    print("Fetching r/programming...")
-    programming = fetch_reddit("programming")
-    time.sleep(15)
-    print("Fetching r/devops...")
-    devops = fetch_reddit("devops")
 
-    payload = build_payload(hn, programming, devops)
+    payload = build_payload(hn)
     resp = session.post(WEBHOOK_URL, json=payload, timeout=10)
     resp.raise_for_status()
     print(f"Posted. Status: {resp.status_code}")
