@@ -6,7 +6,6 @@ import re
 import json
 import time
 import subprocess
-import xml.etree.ElementTree as ET
 import requests
 from requests.adapters import HTTPAdapter, Retry
 from datetime import datetime, timezone
@@ -17,7 +16,6 @@ load_dotenv()
 WEBHOOK_URL = os.environ["DISCORD_WEBHOOK_URL"]
 HN_TOP_URL = "https://hacker-news.firebaseio.com/v0/topstories.json"
 HN_ITEM_URL = "https://hacker-news.firebaseio.com/v0/item/{}.json"
-REDDIT_RSS_URL = "https://www.reddit.com/r/{}/top.rss?t=day"
 TOP_N = 10
 
 HEADERS = {"User-Agent": "linux:tech-digest-bot:v1.0 (by /u/jean-homelab)"}
@@ -46,54 +44,6 @@ def fetch_hn(n=TOP_N):
             })
     return stories
 
-
-def fetch_reddit(sub, n=TOP_N):
-    xml_body = None
-    for attempt in range(3):
-        result = subprocess.run(
-            ["curl", "-s", "-L", "-w", "\n__HTTP_STATUS__%{http_code}",
-             "-H", f"User-Agent: {HEADERS['User-Agent']}",
-             REDDIT_RSS_URL.format(sub)],
-            capture_output=True, text=True, timeout=30,
-        )
-        body, _, http_status = result.stdout.rpartition("\n__HTTP_STATUS__")
-        http_status = http_status.strip()
-        if result.returncode == 0 and http_status == "200" and "<entry>" in body:
-            xml_body = body
-            break
-        wait = 30 * (2 ** attempt)  # 30s, 60s, 120s
-        print(f"  WARN: r/{sub} attempt {attempt+1} failed (HTTP {http_status}), retrying in {wait}s...")
-        time.sleep(wait)
-    else:
-        print(f"  WARN: r/{sub} all retries failed, skipping")
-        return []
-    root = ET.fromstring(xml_body)
-    ns = {"atom": "http://www.w3.org/2005/Atom"}
-    entries = root.findall("atom:entry", ns)
-    results = []
-    for entry in entries[:n]:
-        title = entry.findtext("atom:title", "", ns).strip()
-        link_el = entry.find("atom:link", ns)
-        reddit_link = link_el.get("href", "") if link_el is not None else ""
-        if not (title and reddit_link):
-            continue
-        content = entry.findtext("atom:content", "", ns)
-        ext_urls = re.findall(r'href="(https?://(?!www\.reddit\.com)[^"]+)"', content)
-        ext_url = ext_urls[0] if ext_urls else ""
-        link = ext_url or reddit_link
-        desc = ""
-        if ext_url:
-            page_text = fetch_page_text(ext_url)
-        else:
-            page_text = ""
-        if len(page_text) < 50:
-            post_body = re.sub(r'<[^>]+>', ' ', content)
-            post_body = re.sub(r'\s+', ' ', post_body).strip()
-            page_text = post_body[:800] if len(post_body) > 50 else ""
-        if page_text:
-            desc = summarize(title, page_text)
-        results.append({"title": title, "url": link, "score": None, "comments": reddit_link, "description": desc})
-    return results
 
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
