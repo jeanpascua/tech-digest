@@ -97,7 +97,7 @@ def fetch_reddit(sub, n=TOP_N):
 
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = "hermes3"
+OLLAMA_MODEL = "qwen2.5:7b"
 
 
 def fetch_page_text(url, max_chars=3000):

@@ -55,6 +55,6 @@ Timer fires at `08:00:00` local time daily.
 ## Stack
 
 - Python + `requests` + `python-dotenv`
-- Ollama (`hermes3`) — local LLM for per-story summarization
+- Ollama (`qwen2.5:7b`) — local LLM for per-story summarization
 - Discord webhook (no bot token)
 - Systemd timer (no cron, no Docker)
