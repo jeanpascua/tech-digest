@@ -1,12 +1,12 @@
 # tech-digest
 
-Pulls the top 10 Hacker News stories every morning and posts them as a Discord embed. Runs on my homelab server via systemd timer at 8am daily. I built it because I wanted passive tech news without opening HN myself.
+Pulls the top 10 Hacker News stories every morning, summarizes each with a local Ollama model, and posts them as a Discord embed. Runs on my homelab server via systemd timer at 8am daily. I built it because I wanted passive tech news without opening HN myself.
 
 ## What gets posted
 
 One Discord embed:
 
-- **Hacker News** — top 10 stories of the day (Firebase API), with score and comments link
+- **Hacker News** — top 10 stories of the day (Firebase API), with AI-generated summary, score, and comments link
 
 ## Setup
 
@@ -55,5 +55,6 @@ Timer fires at `08:00:00` local time daily.
 ## Stack
 
 - Python + `requests` + `python-dotenv`
+- Ollama (`hermes3`) — local LLM for per-story summarization
 - Discord webhook (no bot token)
 - Systemd timer (no cron, no Docker)
